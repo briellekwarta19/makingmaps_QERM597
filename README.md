@@ -2,6 +2,10 @@
 
 By: Brielle Thompson, Lily McGill, John Henry, and Yian Lin
 
+## Things to do before class 
+
+Download all files in the `data` folder of this repository. Bring your laptops! 
+
 ## Outline 
  * [Intro to spatial data](https://htmlpreview.github.io/?https://github.com/briellekwarta19/makingmaps_QERM597/blob/main/intro_tospatialdata.html)
  * Using `ggplot2` to make static maps
