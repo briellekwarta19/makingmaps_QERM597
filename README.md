@@ -5,4 +5,4 @@ By: Brielle Thompson, Lily McGill, John Henry, and Yian Lin
 
 Outline 
  * 
- * [Using Leaflet to make interactive maps[(https://rpubs.com/lmcgill/901270) 
+ * [Using Leaflet to make interactive maps](https://rpubs.com/lmcgill/901270) 
