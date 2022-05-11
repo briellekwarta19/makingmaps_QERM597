@@ -1,0 +1,273 @@
+---
+title: "Introduction to Spatial Data: QERM 597"
+author: "Brielle K Thompson"
+date: "5/12/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+#Load libraries:
+library(tidyverse)
+library(raster) # raster data
+library(terra) # classes and functions for raster data
+library(spData) # load geographic data
+library(readr) #reading csv
+library(readxl) #reading xlx files
+
+library(tmap)
+library(tmaptools)
+
+```
+
+## Introduction to Spatial Data
+
+Spatial data can be described by three data models:
+
+1. *Vector data*: represents spatial information with points, lines, polygons
+
+2. *Raster data*: represents surfaces
+
+3. *Spatial data cubes*: represents spatial information from repeated measures
+
+### Vector data
+
+* The vector data model represents the world as a set of spatial geometries with non-spatial attributes  
+
+* Three types of geometries:  
+  + *Points*: represented by a pair of coordinates within a coordinate reference system (CRS)  
+  + *Lines*: represented by several points connected by a straight line
+  + *Polygons*: represented by a set points connected by a straight line (a closed object). Polygons can have holes! 
+  
+* Non-spatial attributes associated with the geometries include additional information (e.g., identification number, some characteristic)
+
+* File formats for vector data:  
+  + Simple files: text file (.csv) or as a spreadsheet (.xls or .xlsx)  
+    + These files are not easy for complex objects  
+    + These files are not suitable for storing information on the coordinate system  
+  + Typical files: shape file format (.shp) is most widely supported and used  
+    + shp files require storing several files  
+    + Attribute names are limited to ten characters
+    + Stores up to 255 attributes and files up to 2GB  
+  + New types of files: 
+    + OGC GeoPackage (.gpkg), GeoJSON (.geojson), GPX (.gpx), and KML (.kml).
+
+
+#### sf package and vector data
+
+```{r}
+library(sf)
+```
+
+The output from library(sf) reports which versions of key geographic libraries such as GEOS the package is using
+
+* GDAL: used for reading, writing and manipulating a wide range of geographic data formats [reference](https://geocompr.robinlovelace.net/read-write.html#read-write)  
+
+* PROJ: a library for coordinate system transformations [referemce](https://geocompr.robinlovelace.net/reproj-geo-data.html#reproj-geo-data)  
+
+* GEOS, a planar geometry engine for operations such as calculating buffers and centroids on data with a projected CRS [reference](https://geocompr.robinlovelace.net/geometric-operations.html#geometric-operations)  
+
+* S2: a spherical geometry engine written in C++ developed by Google, via the s2 package [reference](https://geocompr.robinlovelace.net/spatial-class.html#s2) [reference](https://geocompr.robinlovelace.net/reproj-geo-data.html#reproj-geo-data)  
+
+SF =  Simple Features, it is a hierarchical data model that represents a wide range of geometry types (e.g., points, polygon, multipoint, multipolygon, etc.) except vector data
+
+#### Quick example:
+
+We will use an example from a pre-existing spatial data source. World is an ‘sf data frame’ containing spatial and attribute columns
+```{r}
+class(world)
+```
+
+Here are the spatial attributes:  
+```{r}
+names(world) #attribute columns
+```
+
+world$geom is a ‘list column’ that contains all the coordinates of the country polygonsis a ‘list column’ that contains all the coordinates of the country polygons
+
+Lets make a quick plot: sf objects make a map for each variable in the data frame
+
+```{r}
+plot(world)
+```
+
+We can take a look at the summary information of the sf object. For example, lets look at the summary for the attribute for population:
+
+```{r}
+summary(world["pop"])
+```
+
+#### Manipulating sf objects:
+
+We can easily subset sf objects. Lets select the first two countries and its first 3 attributes  
+
+```{r}
+
+#selecting the first two countries and its first 3 attributes 
+mini_world <- world[1:2, 1:3]
+mini_world
+```
+
+#### Using 'our own' data:
+
+Lets load our data. We will be using the honey data set that describes honey production and prices across U.S. states. 
+
+```{r, message = FALSE, warning = FALSE}
+# load the csv file for honey production in the us
+honey_csv <- read_csv("honeyproduction.csv")
+# load the xlsx file for abbreviations of the us states
+abbrev <- read_xlsx("abbrev.xlsx")
+# load honey shapefile
+honey_sf <- read_sf("honey.shp") #honey.shx is needed in your working directory
+
+```
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE }
+# We need to do some data manipulation on the honey file:
+#we want to use data from 2009-2012, we need to wrangle the data because some states have no data
+# select the years starting in 2009
+honey0912 <- honey_csv[honey_csv$year > 2008, ]
+# bind missing data to the original data
+honey0912 <- rbind(
+  honey0912,
+  # create an empty matrix for all the states that are missing
+  matrix(
+    NA,
+    ncol = ncol(honey0912),
+    nrow = 4 * length(
+      unique(abbrev$state)[!unique(abbrev$state) %in% unique(honey0912$state)]
+      ),
+    dimnames = list(
+      c(
+        seq_len(
+          4 * length(
+            unique(abbrev$state)[!unique(abbrev$state) %in% unique(honey0912$state)])
+          )
+        ),
+      colnames(honey0912)
+      )
+    )
+  )
+# add the missing state names
+honey0912[
+  is.na(honey0912$state), ]$state <- sort(
+    rep(unique(abbrev$state)[!unique(abbrev$state) %in% unique(honey0912$state)], 4)
+    )
+# add the year for the missing states
+honey0912[is.na(honey0912$year), ]$year <- rep(2009:2012, 10)
+# merge the honey dataset with the state abbreviations
+honey0912 <-  merge.data.frame(honey0912, abbrev, by = "state")
+# change the colnames of our two datasets for merging
+colnames(honey0912)[c(1, 9)] <- c("short", "State")
+# use the us_states data from spData
+colnames(us_states)[2] <- "State"
+# remove the district of columbia from the us_states dataset from spData
+us_states <- us_states[us_states$State != "District of Columbia", ]
+# merge the data together
+honey0912 <- merge(honey0912, us_states[, c(2, 7)], by = "State", all.y = TRUE)
+# turn it into an sf object
+honey0912 <- st_as_sf(honey0912)
+
+```
+
+Lets plot the data:
+
+```{r}
+plot(honey0912)
+```
+
+Lets plot just price per lb:
+
+```{r}
+plot(honey0912["priceperlb"])
+```
+
+There are many ways to modify maps with sf’s plot() method. Base R plotting methods work with sf objects.
+
+For example, the figure below overlayes circles, whose diameters (set with cex =) represent honey prices in each state, on a map of the U.S. 
+
+```{r, warning= FALSE}
+plot(honey0912["priceperlb"], reset = FALSE)
+cex = honey0912$priceperlb
+price_cents = st_centroid(honey0912, of_largest = TRUE)
+plot(st_geometry(price_cents), add = TRUE, cex = cex)
+
+```
+
+* Exercise: do this for a different attribute in the honey dataset 
+
+
+The sf’s plot method also has arguments specific to geographic data. We will use the expandBB, for example, to plot an sf object in context. This argument takes a numeric vector of length four that expands the bounding box of the plot relative to zero in the following order: bottom, left, top, right. This is used to plot Washington in the context of the U.S.
+
+```{r}
+washington = honey0912[honey0912$State == "Washington", ]
+plot(st_geometry(washington), expandBB = c(1, 1, 0.8, 1.8), col = "gray", lwd = 3)
+plot(honey0912[0], add = TRUE)
+
+```
+
+### Raster data
+
+* The raster data model represents the world using a continuous grid of cells, where each cell has a single associated value  
+
+* We can often distinguish continuous and categorical rasters
+  + Continuous rasters: values vary progressively (e.g., elevation or precipitation)
+  + Categorical rasters: uses integer values to represent classes (e.g., land cover or soil types)
+  + Raster data can also contain cells for which we do not know the value 
+  
+* Contrary to spatial vector data, a basic raster data stores just one attribute
+  + But we can stack multiple rasters together (raster layers or temporal rasters)
+
+* File formats for raster data:
+  + GeoTIFF format (.tif or .tiff)
+  + Arc ASCII (.asc)
+  + ERDAS Imagine (.img)
+
+#### Example:
+
+```{r, warning = FALSE, message = FALSE}
+# load raster file for europe
+europe_raster <- raster("elevation1x1_new.tif")
+
+#using tmap (explained later)
+
+tm_shape(europe_raster)+
+  tm_raster(style= "cont", palette=get_brewer_pal("-Greys", plot=FALSE)) +
+  tm_layout(legend.outside = TRUE)
+
+```
+
+### Spatial data cubes
+
+* Traditionally,spatial vector and raster data models refer to a unique set of locations
+  + For example, each feature in a polygon dataset and each cell in a raster dataset refer to one specific area
+  + But we need to store and operate on more complex data structures
+  + Sometimes we have many attributes, often for several moments in time.
+
+For example, consider a polygon data with many attributes representing land-use types for several years. How would we create a useful data object?
+* One approach: create a separate column for each variable in each year.
+* Second approach: have one column representing the year and one column for each attribute (requires multiplying each geometry as many times as we have time stamps)
+* Third approach: involves separating geometries from attributes, and where attributes for each moment are stored independently. -this is how we make spatial vector data cubes
+
+
+*Examples of spatial data cubes: time-series of climate measurements for several stations, demographic data on a country level gathered for many years, or satellite images over some period of time
+
+* File formats for raster objects:
+  + One way to create spatial data cubes is by connecting many independent vector or raster objects.
+  + A second way is to read a spatial data cube from the following formats: NetCDF (.nc) and HDF (.hdf).
+
+#### Example
+
+see [link](https://coastwatch.gitbook.io/satellite-course/tutorials/r-tutorial/1.-how-to-work-with-satellite-data-in-r) for example tutorial (if we have time, work through this tutorial with a partner)
+
+### Coordinate reference systems (CRS)
+
+## References
+[tmap: elegant and effective thematic maps in R](https://r-tmap.github.io/tmap-book/geodata.html)
+
+[Geocomputation with R](https://geocompr.robinlovelace.net/spatial-class.html)
+
+[Netcdf files](https://thiagodossantos.com/post/2-raster_basic_operations/)
