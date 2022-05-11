@@ -1,0 +1,267 @@
+---
+title: "Using Leaflet to make interactive maps"
+author: "Lily McGill"
+date: "5/10/2022"
+output: html_document
+---
+
+	
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+
+# for loading our data
+library(raster)
+library(readr)
+library(readxl)
+library(sf)
+# for datasets
+library(maps)
+library(spData)
+# for creating animations
+library(magick)
+# for plotting
+library(grid)
+library(viridis)
+
+honey_csv = read.csv("honeyproduction.csv")
+honey_sf = read_sf("honey.shp")
+
+# # select the years starting in 2009
+# honey0912 <- honey_csv[honey_csv$year > 2008, ]
+# # bind missing data to the original data
+# honey0912 <- rbind(
+#   honey0912,
+#   # create an empty matrix for all the states that are missing
+#   matrix(
+#     NA,
+#     ncol = ncol(honey0912),
+#     nrow = 4 * length(
+#       unique(abbrev$state)[!unique(abbrev$state) %in% unique(honey0912$state)]
+#       ),
+#     dimnames = list(
+#       c(
+#         seq_len(
+#           4 * length(
+#             unique(abbrev$state)[!unique(abbrev$state) %in% unique(honey0912$state)])
+#           )
+#         ),
+#       colnames(honey0912)
+#       )
+#     )
+#   )
+# # add the missing state names
+# honey0912[
+#   is.na(honey0912$state), ]$state <- sort(
+#     rep(unique(abbrev$state)[!unique(abbrev$state) %in% unique(honey0912$state)], 4)
+#     )
+# # add the year for the missing states
+# honey0912[is.na(honey0912$year), ]$year <- rep(2009:2012, 10)
+# # merge the honey dataset with the state abbreviations
+# honey0912 <-  merge.data.frame(honey0912, abbrev, by = "state")
+# # change the colnames of our two datasets for merging
+# colnames(honey0912)[c(1, 9)] <- c("short", "State")
+# # use the us_states data from spData
+# colnames(us_states)[2] <- "State"
+# # remove the district of columbia from the us_states dataset from spData
+# us_states <- us_states[us_states$State != "District of Columbia", ]
+# # merge the data together
+# honey0912 <- merge(honey0912, us_states[, c(2, 7)], by = "State", all.y = TRUE)
+# # turn it into an sf object
+# honey0912 <- st_as_sf(honey0912)
+
+```
+
+
+**Most of the content in this document is blatently copied from [here](https://rstudio.github.io/leaflet/) and [here](https://bookdown.org/nicohahn/making_maps_with_r5/docs/leaflet.html). Visit these sites for more detail on using Leaflet with R.**
+
+## 1. Introduction
+
+Leaflet is one of the most popular open-source JavaScript libraries for interactive maps. It’s used by websites ranging from The New York Times and The Washington Post to GitHub and Flickr, as well as GIS specialists like OpenStreetMap, Mapbox, and CartoDB.
+
+This R package makes it easy to integrate and control Leaflet maps in R.
+
+### Features 
+
+ * Interactive panning/zooming
+ * Compose maps using arbitrary combinations of:
+   * Map tiles
+   * Markers
+   * Polygons
+   * Lines
+   * Popups
+   * GeoJSON
+ * Create maps right from the R console or RStudio
+ * Embed maps in knitr/R Markdown documents and Shiny apps
+ * Easily render spatial objects from the `sp` or `sf` packages, or data frames with latitude/lon gitude columns
+ * Use map bounds and mouse events to drive Shiny logic
+ * Display maps in non spherical mercator projections
+ * Augment map features using chosen plugins from [leaflet plugins repository](https://leafletjs.com/plugins) 
+
+### Installation 
+
+To install this R pacakge, run this command at your R prompt: 
+
+```{r install, results=FALSE, eval=FALSE}
+install.packages("leaflet",repos = "http://cran.us.r-project.org")
+# to install the development version from Github, run
+# devtools::install_github("rstudio/leaflet")
+``` 
+
+Once installed, you can use this package at the R console, within R Markdown documents, and within Shiny applications.
+
+### Basic Usage 
+
+You create a Leaflet map with these basic steps:
+
+1. Create a map widget by calling `leaflet()`.
+2. Add *layers* (i.e., features) to the map by using layer functions (e.g. `addTiles`, `addMarkers`, `addPolygons`) to modify the map widget.
+3. Repeat step 2 as desired.
+4. Print the map widget to display it.
+
+Here’s a basic example:
+
+```{r baby_map}
+library(leaflet)
+
+m <- leaflet() %>%
+  addTiles() %>%  # Add default OpenStreetMap map tiles
+  addMarkers(lng=-122.316, lat=47.653, popup="Your Current Location")
+m  # Print the map
+
+
+```
+
+## 2. Map Widget
+The function `leaflet()` returns a Leaflet map widget, which stores a list of objects that can be modified or updated later. 
+
+### Initializing Options
+The map widget can be initialized with certain parameters. This is achieved by populating the options argument as shown below.
+
+```{r leafletOptions, eval=FALSE}
+#Set value for the minZoom and maxZoom settings.
+leaflet(options = leafletOptions(minZoom = 0, maxZoom = 18))
+```
+
+The `leafletOptions()` can be passed any option described in the leaflet [reference document](https://leafletjs.com/reference-1.3.4.html#map-option). Using the `leafletOptions()`, you can modify elements such as the map projection, map boundaries, interaction options and more!
+
+### Map Methods
+You can manipulate the attributes of the map widget using a series of methods. Please see the help page `?setView` for details.
+
+ * `setView()` sets the center of the map view and the zoom level;
+ * `fitBounds()` fits the view into the rectangle [lng1, lat1] – [lng2, lat2];
+ * `clearBounds()` clears the bound, so that the view will be automatically determined by the range of latitude/longitude data in the map layers if provided;
+
+### The Data Object
+Both `leaflet()` and the map layer functions have an optional data parameter that is designed to receive spatial data in one of several forms:
+
+ * From base R:
+    * lng/lat matrix
+    * data frame with lng/lat columns
+ * From the `sp` package:
+    * SpatialPoints[DataFrame]
+    * Line/Lines
+    * SpatialLines[DataFrame]
+    * Polygon/Polygons
+    * SpatialPolygons[DataFrame]
+ * From the `maps` package:
+    * the data frame from returned from map()
+
+The `data` argument is used to derive spatial data for functions that need it; for example, if data is a `SpatialPolygonsDataFrame` object, then calling `addPolygon` on that map widget will know to add the polygons from that `SpatialPolygonsDataFrame`. The most common calls are as follows: 
+
+ * `addMarkers()` to add point data
+ * `addAwesomeMarkers()` to add point data 
+   * This function is similar to `addMarkers()` function but additionally allows you to specify custom colors for the markers as well as icons from the [Font Awesome](https://fontawesome.com/icons), [Bootstrap Glyphicons](https://getbootstrap.com/docs/5.1/components/accordion/), and [Ion icons](https://ionic.io/ionicons) icon libraries. It is pretty fun. 
+ * `addCircleMarkers()` to add point data
+   * Circle markers are much like regular circles, except that their radius in onscreen pixels stays constant regardless of zoom level.
+ * `addCircles()` to add point data
+   * Circles are similar to circle markers; the only difference is that circles have their radii specified in meters, while circle markers are specified in pixels. As a result, circles are scaled with the map as the user zooms in and out, while circle markers remain a constant size on the screen regardless of zoom level.
+ * `addPolygons()` to add polygon data 
+ * `addPolylines()` to add spatial line data 
+ * `addRasterImage()` to add raster data (Warning: this can be slow)
+
+It is straightforward to derive these variables from `sp` or `sf` objects since they always represent spatial data in the same way. On the other hand, for a normal matrix or data frame, any numeric column could potentially contain spatial data. So we resort to guessing based on column names:
+
+ * the latitude variable is guessed by looking for columns named `lat` or `latitude` (case-insensitive)
+ * the longitude variable is guessed by looking for `lng`, `long`, or `longitude`
+ 
+You can always explicitly identify latitude/longitude columns by providing `lng` and `lat` arguments to the layer function.
+
+### Basemaps 
+
+Leaflet supports basemaps using [map tiles](https://docs.mapbox.com/help/getting-started/web-apps/), popularized by Google Maps and now used by nearly all interactive web maps. The easiest way to add tiles is by calling `addTiles()` with no arguments; by default, [OpenStreetMap](https://www.openstreetmap.org/#map=5/38.007/-95.844) tiles are used. Alternatively, many popular free third-party basemaps can be added using the `addProviderTiles()` function, which is implemented using the [leaflet-providers plugin](http://leaflet-extras.github.io/leaflet-providers/preview/index.html). In the example below, we use the `Esri.WorldImagery` basemap. You can often overlay basemaps if you want additional information - take a moment to explore the options on the [leaflet-providers plugin](http://leaflet-extras.github.io/leaflet-providers/preview/index.html). 
+
+```{r leaflet_basemap}
+leaflet() %>% setView(lng=-122.316, lat=47.653, zoom = 14) %>% 
+  addProviderTiles(providers$Esri.WorldImagery) %>% 
+    addMarkers(lng=-122.316, lat=47.653, popup="Your Current Location")
+```
+
+## 3. Our Example
+
+Now we will work on the same example as before, but this time in an interactive format. Each section below will describe a bit of the final leaflet map - run the final block of code to generate the final map. 
+
+First, we need to generate our data. The `honey_sf` dataframe currently consists of several years of data for each state. Although `leaflet` can effectively show time series, for now we want to get an average price per lb over the time series. We use the `group_by` function to get the mean price of honey for each state over all years of data. 
+
+```{r generate_data}
+honey_sf_avg = honey_sf %>% 
+  dplyr::group_by(State) %>% 
+  dplyr::summarize(avg_prcprlb = mean(prcprlb, na.rm=TRUE)) %>% 
+  dplyr::ungroup()
+
+```
+
+Next, we will create a custom color palette that depends on average price per pound of honey.  
+
+```{r color_pal}
+pal <- colorBin("YlOrRd", domain = honey_sf_avg$avg_prcprlb, bins = 5)
+```
+
+Now on to plotting your map! Although the satellite imagery is nice, it's likely a bit too much for what we need. We are now using a fairly simple basemap, the `CartoDB.Positron` basemap. We are going to add polygons for each US state (colored by the average price per pound of honey), labels that pop-up when you hover over a particular state, and a legend. 
+
+The below example uses the `highlightOptions` parameter to emphasize the currently moused-over polygon. The `bringToFront = TRUE` argument is necessary to prevent the thicker, white border of the active polygon from being hidden behind the borders of other polygons that happen to be higher in the z-order. 
+
+```{r leaflet_chlorepleth}
+
+leaflet() %>% 
+  addProviderTiles(providers$CartoDB.Positron) %>% # Add a nice, neutral background
+  addPolygons(data = honey_sf_avg, # Add polygons 
+              fillColor = ~pal(avg_prcprlb), # Color the polygons by the average price per lb of honey 
+              weight = 2, # Increase polygon outline
+              opacity = 1, # Make the polygon outline not see-through at all  
+              color = "white", # Make the polygon outlines white 
+              dashArray = "3", # Make the polygon outlines dashed 
+              fillOpacity = 0.7, # Make the polygons somewhat see-through
+              highlightOptions = highlightOptions( # Defines pop-up labels  
+                weight = 5,
+                color = "#666",
+                dashArray = "",
+                fillOpacity = 0.7,
+                bringToFront = TRUE), 
+              label = paste("<strong>State</strong>: ", # Make this part of the label bolded
+                            honey_sf_avg$State, "<br>",
+                            "<strong>Price Per LB</strong>: ", # Make this part of the label bolded 
+                            "$",round(honey_sf_avg$avg_prcprlb, 2)) %>% 
+                lapply(htmltools::HTML), # We need this bit to properly apply the code creating bold words and line breaks
+                labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto")) %>% 
+  addLegend(data = honey_sf_avg,
+            pal = pal,
+            values = ~avg_prcprlb, 
+            labFormat = labelFormat(prefix = "$"), 
+            opacity = 0.7, 
+            title = "HONEY PRICE/LB",
+  position = "bottomright")
+
+```
+
+## 4. Leaflet Extras 
+
+There's a ton of things not shown here you can do with leaflet! See the `R` package `leaflet.extras2` to add a slider that shows data through time, add current or historical weather data (see [this](https://ahorn.lima-city.de/owm/) example), and much more! 
+
+`Leaflet` also includes powerful and convenient features for integrating with `Shiny` applications, a a web framework for R. To learn more about Shiny, visit <https://shiny.rstudio.com>. Most Shiny output widgets are incorporated into an app by including an output (e.g. `plotOutput`) for the widget in the UI definition, and using a render function (e.g. `renderPlot`) in the server function. Leaflet maps are no different; in the UI you call `leafletOutput`, and on the server side you assign a `renderLeaflet` call to the output. Inside the `renderLeaflet` expression, you return a Leaflet map object. Some examples are [here](https://shiny.rstudio.com/gallery/superzip-example.html), [here](https://lmcgill.shinyapps.io/KafueForestDischarge/), and [here](https://shiny.rstudio.com/gallery/lake-profile-dashboard.html). 
+
+You can also publish your leaflet map directly using `RPubs`. Click the blue circle in the top left-corner of your Rstudio viewer (it should say "Publish" if you hover over it) and walk through the steps to get a shareable link to your map! 
+
