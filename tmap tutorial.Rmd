@@ -1,0 +1,282 @@
+---
+title: "tmap tutorial"
+author: "Yian Lin"
+date: '2022-05-10'
+output: html_document
+---
+
+This presentation will cover how to make static, animated, and interactive maps using the `tamp` R package. Most of the content is from [here](https://bookdown.org/nicohahn/making_maps_with_r5/docs/tmap.html#data-used) and [here](https://geocompr.robinlovelace.net/adv-map.html#adv-map). Please see them for more information on the use of `tmap`.
+
+```{r packages-loading, warning=FALSE, message=FALSE}
+# for loading our data
+library(sf)
+# for creating animations
+library(magick)
+# for plotting
+library(tmap)
+library(grid)
+library(viridis)
+```
+
+## tamp
+`tamp` offers a flexible, layer-based, and easy to use approach to create maps. - It has a concise syntax that allows for the creation of attractive maps with minimal code. 
+- It accepts a wider range of spatial classes (including raster objects).
+- It is based on the grammar of graphics, and resembles the syntax of `ggplot2`. - It has the unique capability to generate static and interactive maps using the same code via `tmap_mode()`. 
+
+### Data used
+We will use the honey data set in this tutorial. This data set has data for honey production and prices for the lower 48 states from 1998 to 2012. There are 720 (48 states * 15 years) rows and 10 columns. Each row is for one state in one year. The columns that we will focus on are "State", "Year", "Yield_per_colony", "Price_per_lb", and "geometry"(polygons of the 48 states). 
+
+```{r data-loading}
+# load honey shapefile (vector data)
+honey_sf <- read_sf("QERM 597 tmap data/honey.shp") # 720(48 states*15 years) * 10
+colnames(honey_sf)[3:8] <- c(
+  "Number_of_colonies", "Yield_per_colony",
+  "Total_production", "Stocks","Price_per_lb",
+  "Value_of_production"
+  )
+```
+
+
+### Static maps with tmap
+The syntax of `tmap` is similar to that of `ggplot2`. This includes a strict separation between data and aesthetics. The basic building block is `tm_shape()` (which defines input data, raster and vector objects), followed by one or more layer elements such as `tm_fill()` and `tm_dots()` to plot data as polygons or points.
+
+We first pass the data object `honey12_sf` to the basic building block `tm_shape()`. Then add layers to it. `tm_fill()` fills the individual polygons, resulting in a filled outline of the lower 48 states. `tm_borders()` draws the borders of the individual polygons, and `tm_polygons()` combines the two functions and adds both layers at the same time. The `+` operator can also be used to add additional layers.
+
+By saving individual maps as objects, they can be displayed next to each other using the `map_arrange()` function.
+
+```{r, simple-examples, fig.align="center", message=FALSE, fig.width=5, fig.height= 4}
+#Set tmap mode to static plotting
+tmap_mode("plot") 
+#First focus on the honey data for year 2012.
+honey12_sf <- honey_sf[honey_sf$year == 2012, ]
+#Make some simple maps
+sm1 <- tm_shape(honey12_sf) +
+  tm_fill() # Add fill layer to the shape
+sm2 <- tm_shape(honey12_sf) +
+  tm_borders() # Add border layer to the shape
+sm3 <- tm_shape(honey12_sf) +
+  tm_polygons() #Add both the fill and border layers
+#Display the maps 
+tmap_arrange(sm1, sm2, sm3, ncol = 1)
+```
+
+
+For the previous plots, we used the default aesthetic settings of `tmap`. To create visually appealing maps, these can be overwritten. Two main types of map aesthetics exist: those that do not change with data and those that change with the data.
+
+Some of the most useful arguments that we can use to customize map aesthetics are the fill color (`col`), transparency (`alpha`), line width (`lwd`) and line style (`lty`). Note: Compared to `ggplot2`, no helper function (`aes()`) is used to customize the design of the map. Instead, the arguments are passed directly. For example: 
+
+```{r, aesthetic, fig.align="center", fig.cap="Use of various aesthetic arguments"}
+us1 <- tm_shape(honey12_sf) +
+  tm_fill(col = "dodgerblue4", alpha = 0.5) #lower alpha, higher transparency
+# set color for the border: border.col = "black" 
+us2 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "dodgerblue4",alpha = 0.5, border.col = "black")
+# Change the line width. Defaul: lwd=1
+us3 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "dodgerblue4",alpha = 0.5, border.col = "black", lwd = 2) 
+# Change the line style
+us4 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "dodgerblue4",alpha = 0.5, border.col = "black", lty = 4) 
+# Display the maps next to each other using the map_arrange() function.
+tmap_arrange(us1, us2, us3, us4, ncol = 2)
+```
+
+Another difference to `ggplot2`: when setting map aesthetics that change with the data, the variable names must be passed as characters and the `$` operator cannot be used. 
+```{r, dollar-operator, error=TRUE}
+#Color based on "Yield_per_colony"
+tm_shape(honey12_sf) +
+  tm_polygons(col = honey12_sf$Yield_per_colony)
+```
+
+The desired graphic is obtained with the following code:
+```{r, characters, fig.align = "center",fig.cap = "Honey yield per colony in each state for year 2012", fig.width = 6, fig.height = 4}
+m <- tm_shape(honey12_sf) +
+  tm_polygons(col = "Yield_per_colony", title = "Yield per colony") +
+  tm_layout(legend.position = c("right","bottom"), inner.margins = 0.06, legend.text.size = 0.75)
+tmap_arrange(m, ncol=1)
+```
+
+The last map shows that `tmap` automatically selects a color palette and intervals for yield per colony. To use other intervals, we can either pass manual bins to the `breaks` argument or use `n` to specify the number of bins.
+
+```{r, breaks, fig.align="center", fig.cap="Use of the breaks and n arguments", fig.height = 4}
+#The default
+ba1 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "Yield_per_colony", title = "Yield per colony")
+#Specify breaks
+ba2 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "Yield_per_colony", breaks = c(30, 50, 70, 90, 120), title = "Yield per colony")
+#Specify the # of bins
+ba3 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "Yield_per_colony", n = 3, title = "Yield per colony")
+#Display the maps 
+tmap_arrange(ba1, ba2, ba3, ncol=3)
+```
+
+An alternative is the `style` argument. This allows us to automatically create breaks by specifying algorithms. Among others, the following styles can be passed:
+
+- `style = pretty`: the default setting, rounds breaks into whole numbers where possible and spaces them evenly.
+- `style = equal`: divides the variable into intervals of equal length and is appropriate for variables with a uniform distribution.
+- `style = quantile`: Splits the variable into quantiles. Consequently there are the same number of observations in each interval (with the potential downside that bin ranges can vary widely).
+- `style = jenks`: Identifies groups with similar values and maximizes the difference between them.
+- `style = cont`: present a large number of colors over continuous color fields and are particularly suited for continuous rasters.
+- `style = cat`: was designed to represent categorical values and assures that each category receives a unique color.
+
+Other possibilities are `fixed`, `sd`, `kmeans`, `hclust`, `bclust`, and `fisher`.
+
+```{r, style, fig.align="center",fig.cap="Diffrent styles", fig.width= 8, fig.height= 7, warning=FALSE, message=FALSE}
+ba4 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "Yield_per_colony", style = "pretty", title = "Yield per colony")
+ba5 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "Yield_per_colony", style = "equal", title = "Yield per colony")
+ba6 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "Yield_per_colony", style = "quantile", title = "Yield per colony")
+ba7 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "Yield_per_colony", style = "jenks", title = "Yield per colony")
+ba8 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "Yield_per_colony", style = "cont", title = "Yield per colony")
+
+tmap_arrange(ba4, ba5, ba6, ba7, ba8, ncol = 3)
+```
+
+When it comes to color scheme, we can use the `palette` argument. The name of a palette from the `RColorBrewer` or `Viridis` package can be passed to this argument. If the order of the palette should be reversed, a `-` can be added at the beginning of the character.
+
+```{r, palette, fig.align="center",fig.cap="Reversing a palette", warning=FALSE, message=FALSE}
+b1 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "Yield_per_colony", style = "quantile", palette = "BuGn", title = "Yield per colony")
+b2 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "Yield_per_colony", style = "quantile", palette = "-BuGn", title = "Yield per colony")
+tmap_arrange(b1, b2, ncol = 2)
+```
+
+With the help of functions like `tm_compass()`, `tm_scale_bar()`, `tm_layout()` and `tm_style()`, maps can be extended by various elements. The first two of these functions can be used to add a compass and a scale bar. With the help of `tm_layout()`, we can add a background color, remove the frame, adjust margins, etc.
+
+```{r, other-elements, message=FALSE, warning=FALSE, fig.align="center", fig.width = 6, fig.height = 5}
+tm_shape(honey12_sf) +
+  tm_polygons(col = "Yield_per_colony", style = "quantile", palette = "BuGn", title = "Yield per colony") +
+  # add compass
+  tm_compass(position = c("left", "top"), size = 1.5) +
+  # add scale bar
+  tm_scale_bar(position = c("left", "bottom"), width = 0.2) + 
+  # add a background color, remove the frame, adjust margins, etc
+  tm_layout(bg.color = "lightgoldenrod1", frame = FALSE, inner.margins = 0.1, legend.outside = TRUE, legend.position = c("right", "top"), legend.outside.size = 0.2,)
+```
+
+By using `tm_style()`, predefined styles can be used to give maps an old-school look, or to optimize them for color-blind people, etc. 
+
+```{r, high-level-styles, fig.align="center", fig.cap="Different high-level styles", message=FALSE, warning=FALSE, fig.height = 4}
+# an old-school look
+a1 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "Yield_per_colony", title = "Yield per colony") +
+  tm_style("classic")
+# for color-blind people
+a2 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "Yield_per_colony", title = "Yield per colony") +
+  tm_style("col_blind")
+# others
+a3 <- tm_shape(honey12_sf) +
+  tm_polygons(col = "Yield_per_colony", title = "Yield per colony") +
+  tm_style("cobalt")
+# Display the maps
+tmap_arrange(a1, a2, a3, ncol = 3)
+```
+
+A preview of predefined styles can be generated by executing the `tmap_style_catalog()` function, which creates a folder containing nine images in the current working directory. Note: `tmap_style_catalogue()` takes some time to run.
+
+
+#### Inset maps
+Sometimes not all information can be displayed effectively with a single map. That's when inset maps can be handy. An inset map is a smaller map rendered within or next to the main map. It could serve many different purposes, including providing a context or bringing some non-contiguous regions closer to ease their comparison.  
+
+In the example below, we create a map of Vermont. Since not everyone knows where Vermont is located in the US, an inset map showing where Vermont is in relation to the US will be added.
+
+```{r, inset-maps-1, message=FALSE}
+# Created the sf data object for Vermont
+honey_VT_sf <- honey12_sf[honey12_sf$State == "Vermont",]
+# Created a bounding box of Vermont
+bbox <- st_bbox(honey_VT_sf, crs = 4326) %>%
+  st_as_sfc() #Convert to an sfc object
+# Map of Vermont
+map_VT <- tm_shape(honey_VT_sf) +
+  tm_polygons(col = "blue", alpha = 0.5) +
+  tm_layout(inner.margin = 0.08)
+# Map of the US
+map_US <- tm_shape(honey12_sf) +
+  tm_polygons() +
+  # add the bounding box to the map of the US
+  tm_shape(bbox) +
+  tm_polygons(alpha = 0, border.col = "red", lwd = 2)
+```
+
+```{r, inset-maps-2, include=TRUE, fig.align="center", fig.cap="Vermont", fig.width= 5, fig.height= 4}
+# Finally, combine the two maps using the print() and viewport() functions. The first two arguments of the viewport() function specify the center location (x and y) of the inset map. And width and height specify the size of the inset map.
+map_VT # Map of Vermont
+print(map_US, vp = grid::viewport(0.75, 0.185, width = 0.45, height = 0.6)) 
+```
+
+
+#### Faceted maps
+Facets enable the visualization of how spatial relationships change with respect to another variable, such as time. What is done in `ggplot2` with `facet_wrap()` is done in `tmap` with `tm_facets()`. Some important arguments:
+
+- `by`: According to which variable should facets be defined?
+- `nrow / ncol`: The number of rows or columns of the facets.
+- `free.cords`: If the `by` argument is specified, should each map has its own coordinate ranges? By default TRUE.
+
+For the example below we will use the honey data for year 2009 to 2012. And we will focus on the honey price per lb.
+```{r, faceted-maps, fig.align="center", fig.caption="Cost of a pound of honey in the USA", message=FALSE}
+# Honey data for year 2009 to 2012
+honey0912_sf <- honey_sf[honey_sf$year > 2008, ]
+# Faceted maps
+tm_shape(honey0912_sf) +
+  tm_polygons(
+    col = "Price_per_lb", #
+    style = "cont",
+    pal = viridis(10, direction = -1),
+    title = "Price in US$ per lb"
+    ) +
+  tm_facets(by = "year", ncol = 2, free.coords = FALSE) + #here
+  tm_layout(legend.outside.size = 0.2)
+```
+
+
+### Animated maps
+One problem with the faceted maps is that with more values of a variable (e.g. time), more maps are created, which quickly becomes confusing and makes it very difficult to distinguish between the individual maps. This problem is solved by using animated maps. 
+
+To create an animated map, step 1 is to create a set of separate maps by using the `along` argument of the function `tm_facets()`, the same function that we just used to create faceted maps. Then step 2 is to combine those separate maps and save the result as a GIF file using the function `tmap_animation()`. Some important arguments of `tmap_animation()`:
+
+- `delay`: specify how many milliseconds should elapse between each image. 
+- `loop`: specify whether the GIF is an endless loop or ends after a certain number of rounds. Default is TRUE.
+
+This time we will show the honey price for 15 years (from 1998 to 2012).
+```{r animatited-map, message=FALSE, warning=FALSE, results='hide'}
+# Create a set of separate maps for each year
+honey_animation <- tm_shape(honey_sf) +
+  tm_polygons(
+    col = "Price_per_lb",
+    pal = viridis(10, direction = -1)
+    ) +
+  tm_facets(along = "year") + # along = "year" instead of by = "year"
+  tm_layout(legend.position = c("right", "bottom"), legend.text.size = 1)
+# Save the animated map as a gif file
+tmap_animation(
+  honey_animation, filename = "honey.gif",
+  delay = 50)
+```
+
+```{r, include-gif, fig.align="center",fig.cap="Example of an animated map", echo=FALSE, fig.width = 8, fig.height = 6}
+image_read("honey.gif")
+```
+
+
+### Interactive maps with tmap
+In `tmap`, interactivity can be added to each map using the function `map_mode("view")`. With `tmap_mode("plot")` this interactivity is removed again.
+
+We will use the honey price data for year 2012.
+```{r, interactive-map, fig.align="center", fig.cap="Honey price for year 2012", message=FALSE}
+# set mode
+tmap_mode("view") 
+# Create the map
+im <- tm_shape(honey12_sf) + 
+  tm_polygons(col = "Price_per_lb", pal = viridis(10, direction = -1), title = "Price per lb", alpha = 0.7)
+#save the interactive map as a html file
+tmap_save(im, "honey price 2012 interactive map.html") 
+im #it uses the first column in the data set to be title of the pop-up cards.
+```
