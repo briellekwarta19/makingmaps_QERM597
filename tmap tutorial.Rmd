@@ -5,7 +5,7 @@ date: '2022-05-10'
 output: html_document
 ---
 
-This presentation will cover how to make static, animated, and interactive maps using the `tamp` R package. Most of the content is from [here](https://bookdown.org/nicohahn/making_maps_with_r5/docs/tmap.html#data-used) and [here](https://geocompr.robinlovelace.net/adv-map.html#adv-map). Please see them for more information on the use of `tmap`.
+This presentation will cover how to make static, animated, and interactive maps using the `tmap` R package. Most of the content is from [here](https://bookdown.org/nicohahn/making_maps_with_r5/docs/tmap.html#data-used) and [here](https://geocompr.robinlovelace.net/adv-map.html#adv-map). Please see them for more information on the use of `tmap`.
 
 ```{r packages-loading, warning=FALSE, message=FALSE}
 # for loading our data
@@ -18,8 +18,8 @@ library(grid)
 library(viridis)
 ```
 
-## tamp
-`tamp` offers a flexible, layer-based, and easy to use approach to create maps. - It has a concise syntax that allows for the creation of attractive maps with minimal code. 
+## tmap
+`tmap` offers a flexible, layer-based, and easy to use approach to create maps. - It has a concise syntax that allows for the creation of attractive maps with minimal code. 
 - It accepts a wider range of spatial classes (including raster objects).
 - It is based on the grammar of graphics, and resembles the syntax of `ggplot2`. - It has the unique capability to generate static and interactive maps using the same code via `tmap_mode()`. 
 

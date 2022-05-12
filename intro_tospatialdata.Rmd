@@ -86,7 +86,7 @@ Here are the spatial attributes:
 names(world) #attribute columns
 ```
 
-world$geom is a ‘list column’ that contains all the coordinates of the country polygonsis a ‘list column’ that contains all the coordinates of the country polygons
+world$geom is a ‘list column’ that contains all the coordinates of the country polygons is a ‘list column’ that contains all the coordinates of the country polygons
 
 Lets make a quick plot: sf objects make a map for each variable in the data frame
 
@@ -242,7 +242,7 @@ tm_shape(europe_raster)+
 
 ### Spatial data cubes
 
-* Traditionally,spatial vector and raster data models refer to a unique set of locations
+* Traditionally, spatial vector and raster data models refer to a unique set of locations
   + For example, each feature in a polygon dataset and each cell in a raster dataset refer to one specific area
   + But we need to store and operate on more complex data structures
   + Sometimes we have many attributes, often for several moments in time.
