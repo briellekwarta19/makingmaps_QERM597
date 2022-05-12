@@ -265,6 +265,8 @@ see [link](https://coastwatch.gitbook.io/satellite-course/tutorials/r-tutorial/1
 
 ### Coordinate reference systems (CRS)
 
+See this great [link](https://www.nceas.ucsb.edu/sites/default/files/2020-04/OverviewCoordinateReferenceSystems.pdf)
+
 ## References
 [tmap: elegant and effective thematic maps in R](https://r-tmap.github.io/tmap-book/geodata.html)
 
