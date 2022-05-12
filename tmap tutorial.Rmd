@@ -28,7 +28,7 @@ We will use the honey data set in this tutorial. This data set has data for hone
 
 ```{r data-loading}
 # load honey shapefile (vector data)
-honey_sf <- read_sf("QERM 597 tmap data/honey.shp") # 720(48 states*15 years) * 10
+honey_sf <- read_sf("honey.shp") # 720(48 states*15 years) * 10
 colnames(honey_sf)[3:8] <- c(
   "Number_of_colonies", "Yield_per_colony",
   "Total_production", "Stocks","Price_per_lb",
