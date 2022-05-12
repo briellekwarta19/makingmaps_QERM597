@@ -10,4 +10,4 @@ Download all files in the `data` folder of this repository. Bring your laptops!
  * [Intro to spatial data](https://htmlpreview.github.io/?https://github.com/briellekwarta19/makingmaps_QERM597/blob/main/intro_tospatialdata.html)
  * Using `ggplot2` to make static maps
  * [Using `Leaflet` to make interactive maps](https://rpubs.com/lmcgill/901270) 
- * Static, animated and interactive maps with `tmap`
+ * [Static, animated and interactive maps with `tmap`](https://htmlpreview.github.io/?https://github.com/briellekwarta19/makingmaps_QERM597/blob/main/tmap-tutorial.html)
