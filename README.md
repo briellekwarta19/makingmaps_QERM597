@@ -11,3 +11,5 @@ Download all files in the `data` folder of this repository. Bring your laptops!
  * [Using `ggplot2` to make static maps](https://rpubs.com/henry529/901687)
  * [Using `Leaflet` to make interactive maps](https://rpubs.com/lmcgill/901270) 
  * [Static, animated and interactive maps with `tmap`](https://rpubs.com/yianlin/901579)
+ 
+ * [tmap](https://github.com/briellekwarta19/makingmaps_QERM597/blob/main/tmap-tutorial.html)
